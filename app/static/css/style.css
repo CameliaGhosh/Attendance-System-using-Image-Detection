@@ -1,0 +1,92 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.jumbotron {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.jumbotron h1 {
+    color: white;
+}
+
+.jumbotron p {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.jumbotron hr {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.jumbotron .btn {
+    margin-right: 10px;
+}
+
+.card {
+    margin-bottom: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+#video {
+    border-radius: 8px;
+    background-color: #000;
+}
+
+#imagePreview {
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+}
+
+#statusPanel {
+    min-height: 150px;
+}
+
+#resultPanel {
+    margin-top: 20px;
+}
+
+.badge {
+    padding: 8px 12px;
+}
+
+.table-responsive {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.btn {
+    border-radius: 6px;
+}
+
+.form-control {
+    border-radius: 6px;
+}
+
+.alert {
+    border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+    .jumbotron {
+        padding: 2rem 1rem;
+    }
+    
+    .jumbotron h1 {
+        font-size: 2rem;
+    }
+    
+    #video {
+        width: 100%;
+        height: auto;
+    }
+}

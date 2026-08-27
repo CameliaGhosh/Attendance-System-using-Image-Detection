@@ -1,0 +1,333 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        <div class="card">
+            <div class="card-header">
+                <h3>Mark Attendance</h3>
+                <div class="alert alert-success py-1 mb-0">
+                    <small>✅ Face recognition system active using OpenCV</small>
+                </div>
+                <div class="btn-group float-end mt-2">
+                    <button class="btn btn-sm btn-outline-primary active" id="cameraModeBtn" onclick="switchToCameraMode()">Camera Mode</button>
+                    <button class="btn btn-sm btn-outline-primary" id="manualModeBtn" onclick="switchToManualMode()">Manual Mode</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Camera Mode -->
+                <div id="cameraMode" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="text-center">
+                                <video id="video" width="480" height="360" autoplay class="border"></video>
+                                <canvas id="canvas" width="480" height="360" style="display: none;"></canvas>
+                            </div>
+                            <div class="text-center mt-3">
+                                <button id="startCameraBtn" class="btn btn-primary me-2" onclick="startCamera()">Start Camera</button>
+                                <button id="stopCameraBtn" class="btn btn-secondary me-2" disabled onclick="stopCamera()">Stop Camera</button>
+                                <button id="markAttendanceBtn" class="btn btn-success" disabled onclick="markAttendance()">Mark Attendance</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div id="statusPanel" class="alert alert-info">
+                                <h5>Status</h5>
+                                <p>Click "Start Camera" to begin</p>
+                            </div>
+                            <div id="resultPanel" style="display: none;">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5>Attendance Result</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <p><strong>Name:</strong> <span id="resultName"></span></p>
+                                        <p><strong>Time:</strong> <span id="resultTime"></span></p>
+                                        <p><strong>Status:</strong> <span id="resultStatus"></span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Manual Mode -->
+                <div id="manualMode">
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">Manual Attendance Entry</h5>
+                                    <p class="card-text">Enter your Employee ID to mark attendance. Make sure you are registered first.</p>
+                                    
+                                    <form id="manualAttendanceForm">
+                                        <div class="mb-3">
+                                            <label for="employee_id" class="form-label">Employee ID</label>
+                                            <input type="text" class="form-control form-control-lg" id="employee_id" name="employee_id" placeholder="Enter your Employee ID" required>
+                                            <div class="form-text">Example: EMP001, TEST123, etc.</div>
+                                        </div>
+                                        <div class="d-grid">
+                                            <button type="button" class="btn btn-success btn-lg" onclick="manualAttendance(event)">Mark Attendance</button>
+                                        </div>
+                                    </form>
+                                    
+                                    <div id="manualStatusPanel" class="alert alert-info mt-3">
+                                        <h6>Status</h6>
+                                        <p>Enter Employee ID to mark attendance manually</p>
+                                    </div>
+                                    
+                                    <div id="manualResultPanel" style="display: none;">
+                                        <div class="card">
+                                            <div class="card-header bg-success text-white">
+                                                <h6 class="mb-0">Attendance Result</h6>
+                                            </div>
+                                            <div class="card-body">
+                                                <p><strong>Name:</strong> <span id="manualResultName"></span></p>
+                                                <p><strong>Time:</strong> <span id="manualResultTime"></span></p>
+                                                <p><strong>Status:</strong> <span id="manualResultStatus"></span></p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <a href="/register" class="btn btn-outline-primary btn-sm">Register New User</a>
+                                        <a href="/reports" class="btn btn-outline-secondary btn-sm">View Attendance Records</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let videoStream = null;
+let isCameraRunning = false;
+
+// Mode switching
+function switchToCameraMode() {
+    document.getElementById('cameraMode').style.display = 'block';
+    document.getElementById('manualMode').style.display = 'none';
+    document.getElementById('cameraModeBtn').classList.add('active');
+    document.getElementById('manualModeBtn').classList.remove('active');
+}
+
+function switchToManualMode() {
+    document.getElementById('cameraMode').style.display = 'none';
+    document.getElementById('manualMode').style.display = 'block';
+    document.getElementById('manualModeBtn').classList.add('active');
+    document.getElementById('cameraModeBtn').classList.remove('active');
+    
+    // Stop camera if running
+    if (videoStream) {
+        const tracks = videoStream.getTracks();
+        tracks.forEach(track => track.stop());
+        videoStream = null;
+        isCameraRunning = false;
+    }
+}
+
+// Initialize with camera mode enabled
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('cameraMode').style.display = 'block';
+    document.getElementById('manualMode').style.display = 'none';
+    document.getElementById('cameraModeBtn').classList.add('active');
+    document.getElementById('manualModeBtn').classList.remove('active');
+});
+
+// Camera Mode Functions
+async function startCamera() {
+    try {
+        videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.getElementById('video');
+        video.srcObject = videoStream;
+        isCameraRunning = true;
+        
+        document.getElementById('startCameraBtn').disabled = true;
+        document.getElementById('stopCameraBtn').disabled = false;
+        document.getElementById('markAttendanceBtn').disabled = false;
+        
+        const statusPanel = document.getElementById('statusPanel');
+        if (statusPanel) {
+            statusPanel.innerHTML = '<h5>Status</h5><p>Camera is running. Position your face in front of the camera and click "Mark Attendance".</p>';
+        }
+    } catch (err) {
+        const statusPanel = document.getElementById('statusPanel');
+        if (statusPanel) {
+            statusPanel.innerHTML = '<h5>Status</h5><p class="text-danger">Error: ' + err.message + '</p>';
+        }
+    }
+}
+
+function stopCamera() {
+    if (videoStream) {
+        const tracks = videoStream.getTracks();
+        tracks.forEach(track => track.stop());
+    }
+    
+    const video = document.getElementById('video');
+    video.srcObject = null;
+    isCameraRunning = false;
+    
+    document.getElementById('startCameraBtn').disabled = false;
+    document.getElementById('stopCameraBtn').disabled = true;
+    document.getElementById('markAttendanceBtn').disabled = true;
+    
+    const statusPanel = document.getElementById('statusPanel');
+    if (statusPanel) {
+        statusPanel.innerHTML = '<h5>Status</h5><p>Camera stopped. Click "Start Camera" to begin.</p>';
+    }
+    const resultPanel = document.getElementById('resultPanel');
+    if (resultPanel) {
+        resultPanel.style.display = 'none';
+    }
+}
+
+async function markAttendance() {
+    if (!isCameraRunning) {
+        const statusPanel = document.getElementById('statusPanel');
+        if (statusPanel) {
+            statusPanel.innerHTML = '<h5>Status</h5><p class="text-danger">Please start the camera first</p>';
+        }
+        return;
+    }
+    
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+    
+    try {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        const imageData = canvas.toDataURL('image/jpeg');
+        
+        const statusPanel = document.getElementById('statusPanel');
+        if (statusPanel) {
+            statusPanel.innerHTML = '<h5>Status</h5><p>Processing image...</p>';
+        }
+        
+        const response = await fetch('/api/mark_attendance', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ image: imageData })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const resultName = document.getElementById('resultName');
+            const resultTime = document.getElementById('resultTime');
+            const resultStatus = document.getElementById('resultStatus');
+            const resultPanel = document.getElementById('resultPanel');
+            
+            if (resultName) resultName.textContent = result.user;
+            if (resultTime) resultTime.textContent = result.time;
+            if (resultStatus) resultStatus.textContent = result.already_marked ? 'Already marked today' : 'Successfully marked';
+            
+            if (resultPanel) resultPanel.style.display = 'block';
+            if (statusPanel) {
+                statusPanel.innerHTML = '<h5>Status</h5><p class="text-success">' + result.message + '</p>';
+            }
+        } else {
+            if (statusPanel) {
+                statusPanel.innerHTML = '<h5>Status</h5><p class="text-danger">' + result.message + '</p>';
+            }
+            const resultPanel = document.getElementById('resultPanel');
+            if (resultPanel) resultPanel.style.display = 'none';
+        }
+    } catch (error) {
+        const statusPanel = document.getElementById('statusPanel');
+        if (statusPanel) {
+            statusPanel.innerHTML = '<h5>Status</h5><p class="text-danger">Error: ' + error.message + '</p>';
+        }
+        const resultPanel = document.getElementById('resultPanel');
+        if (resultPanel) resultPanel.style.display = 'none';
+    }
+}
+
+// Manual Mode Functions
+async function manualAttendance(event) {
+    event.preventDefault();
+    
+    const employeeId = document.getElementById('employee_id').value.trim();
+    
+    if (!employeeId) {
+        const manualStatusPanel = document.getElementById('manualStatusPanel');
+        if (manualStatusPanel) {
+            manualStatusPanel.innerHTML = '<h6>Status</h6><p class="text-danger">Please enter an Employee ID</p>';
+            manualStatusPanel.className = 'alert alert-danger mt-3';
+        }
+        return;
+    }
+    
+    const manualStatusPanel = document.getElementById('manualStatusPanel');
+    const manualResultPanel = document.getElementById('manualResultPanel');
+    
+    if (manualStatusPanel) {
+        manualStatusPanel.innerHTML = '<h6>Status</h6><p>Processing attendance...</p>';
+        manualStatusPanel.className = 'alert alert-info mt-3';
+    }
+    if (manualResultPanel) {
+        manualResultPanel.style.display = 'none';
+    }
+    
+    try {
+        const response = await fetch('/api/mark_attendance', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ employee_id: employeeId })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const manualResultName = document.getElementById('manualResultName');
+            const manualResultTime = document.getElementById('manualResultTime');
+            const manualResultStatus = document.getElementById('manualResultStatus');
+            
+            if (manualResultName) manualResultName.textContent = result.user;
+            if (manualResultTime) manualResultTime.textContent = result.time;
+            if (manualResultStatus) manualResultStatus.textContent = result.already_marked ? 'Already marked today' : 'Successfully marked';
+            
+            if (manualResultPanel) manualResultPanel.style.display = 'block';
+            if (manualStatusPanel) {
+                manualStatusPanel.innerHTML = '<h6>Status</h6><p class="text-success">' + result.message + '</p>';
+                manualStatusPanel.className = 'alert alert-success mt-3';
+            }
+            
+            // Clear the input field
+            const employeeIdInput = document.getElementById('employee_id');
+            if (employeeIdInput) employeeIdInput.value = '';
+        } else {
+            if (manualStatusPanel) {
+                manualStatusPanel.innerHTML = '<h6>Status</h6><p class="text-danger">' + result.message + '</p>';
+                manualStatusPanel.className = 'alert alert-danger mt-3';
+            }
+            if (manualResultPanel) manualResultPanel.style.display = 'none';
+        }
+    } catch (error) {
+        if (manualStatusPanel) {
+            manualStatusPanel.innerHTML = '<h6>Status</h6><p class="text-danger">Error: ' + error.message + '</p>';
+            manualStatusPanel.className = 'alert alert-danger mt-3';
+        }
+        if (manualResultPanel) manualResultPanel.style.display = 'none';
+    }
+}
+
+// Stop camera when page is unloaded
+window.addEventListener('beforeunload', function() {
+    if (videoStream) {
+        const tracks = videoStream.getTracks();
+        tracks.forEach(track => track.stop());
+    }
+});
+</script>
+{% endblock %}

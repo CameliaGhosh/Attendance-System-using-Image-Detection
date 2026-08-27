@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <h3>Attendance Reports</h3>
+            </div>
+            <div class="card-body">
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="dateFilter" class="form-label">Filter by Date</label>
+                        <input type="date" class="form-control" id="dateFilter">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">&nbsp;</label>
+                        <div>
+                            <button id="filterBtn" class="btn btn-primary">Filter</button>
+                            <button id="resetBtn" class="btn btn-secondary">Reset</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Registered Users</h5>
+                            </div>
+                            <div class="card-body">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Employee ID</th>
+                                            <th>Email</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for user in users %}
+                                        <tr>
+                                            <td>{{ user.name }}</td>
+                                            <td>{{ user.employee_id }}</td>
+                                            <td>{{ user.email or 'N/A' }}</td>
+                                        </tr>
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="3">No users registered yet</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5>Attendance Summary</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="text-center">
+                                            <h3>{{ attendance_records|length }}</h3>
+                                            <p>Total Records</p>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="text-center">
+                                            <h3>{{ users|length }}</h3>
+                                            <p>Registered Users</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5>Attendance Records</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="attendanceTable">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Name</th>
+                                        <th>Employee ID</th>
+                                        <th>Check In</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for record in attendance_records %}
+                                    <tr>
+                                        <td>{{ record.date }}</td>
+                                        <td>{{ record.user.name }}</td>
+                                        <td>{{ record.user.employee_id }}</td>
+                                        <td>{{ record.check_in_time.strftime('%I:%M %p') }}</td>
+                                        <td>
+                                            <span class="badge bg-success">{{ record.status }}</span>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="5">No attendance records found</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('filterBtn').addEventListener('click', async function() {
+    const date = document.getElementById('dateFilter').value;
+    if (!date) {
+        alert('Please select a date');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/get_attendance?date=${date}`);
+        const records = await response.json();
+        
+        const tbody = document.querySelector('#attendanceTable tbody');
+        tbody.innerHTML = '';
+        
+        if (records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5">No attendance records found for this date</td></tr>';
+        } else {
+            records.forEach(record => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${record.date}</td>
+                    <td>${record.user_name}</td>
+                    <td>${record.employee_id}</td>
+                    <td>${record.check_in_time}</td>
+                    <td><span class="badge bg-success">${record.status}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+    } catch (error) {
+        alert('Error fetching attendance records: ' + error.message);
+    }
+});
+
+document.getElementById('resetBtn').addEventListener('click', async function() {
+    document.getElementById('dateFilter').value = '';
+    
+    try {
+        const response = await fetch('/api/get_attendance');
+        const records = await response.json();
+        
+        const tbody = document.querySelector('#attendanceTable tbody');
+        tbody.innerHTML = '';
+        
+        if (records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7">No attendance records found</td></tr>';
+        } else {
+            records.forEach(record => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${record.date}</td>
+                    <td>${record.user_name}</td>
+                    <td>${record.employee_id}</td>
+                    <td>${record.check_in_time}</td>
+                    <td>${record.check_out_time || 'N/A'}</td>
+                    <td><span class="badge bg-success">${record.status}</span></td>
+                    <td>${record.confidence ? record.confidence + '%' : 'N/A'}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+    } catch (error) {
+        alert('Error fetching attendance records: ' + error.message);
+    }
+});
+</script>
+{% endblock %}

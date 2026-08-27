@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h3>Register New User</h3>
+            </div>
+            <div class="card-body">
+                <form id="registrationForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="employee_id" class="form-label">Employee ID</label>
+                        <input type="text" class="form-control" id="employee_id" name="employee_id" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email (Optional)</label>
+                        <input type="email" class="form-control" id="email" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label for="face_image" class="form-label">Face Image</label>
+                        <input type="file" class="form-control" id="face_image" name="face_image" accept="image/*" required>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-secondary btn-sm" id="captureBtn">Capture from Camera</button>
+                        </div>
+                    </div>
+                    <div class="mb-3" id="cameraContainer" style="display: none;">
+                        <video id="video" width="320" height="240" autoplay></video>
+                        <canvas id="canvas" width="320" height="240" style="display: none;"></canvas>
+                        <button type="button" class="btn btn-primary btn-sm mt-2" id="takePhotoBtn">Take Photo</button>
+                        <button type="button" class="btn btn-secondary btn-sm mt-2" id="closeCameraBtn">Close Camera</button>
+                    </div>
+                    <div class="mb-3" id="previewContainer" style="display: none;">
+                        <label class="form-label">Image Preview</label>
+                        <img id="imagePreview" class="img-thumbnail" width="200" height="200">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Register User</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Registration Successful</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="successMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('captureBtn').addEventListener('click', async function() {
+    const cameraContainer = document.getElementById('cameraContainer');
+    cameraContainer.style.display = 'block';
+    
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.getElementById('video');
+        video.srcObject = stream;
+    } catch (err) {
+        alert('Error accessing camera: ' + err.message);
+    }
+});
+
+document.getElementById('takePhotoBtn').addEventListener('click', function() {
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const context = canvas.getContext('2d');
+    
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    const imageData = canvas.toDataURL('image/jpeg');
+    const imagePreview = document.getElementById('imagePreview');
+    imagePreview.src = imageData;
+    document.getElementById('previewContainer').style.display = 'block';
+    
+    // Create a file from the canvas data
+    canvas.toBlob(function(blob) {
+        const file = new File([blob], 'captured_image.jpg', { type: 'image/jpeg' });
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(file);
+        document.getElementById('face_image').files = dataTransfer.files;
+    }, 'image/jpeg');
+});
+
+document.getElementById('closeCameraBtn').addEventListener('click', function() {
+    const video = document.getElementById('video');
+    const stream = video.srcObject;
+    if (stream) {
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+    }
+    document.getElementById('cameraContainer').style.display = 'none';
+});
+
+document.getElementById('registrationForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('/api/register_user', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            document.getElementById('successMessage').textContent = result.message;
+            const modal = new bootstrap.Modal(document.getElementById('successModal'));
+            modal.show();
+            this.reset();
+            document.getElementById('previewContainer').style.display = 'none';
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+});
+</script>
+{% endblock %}
